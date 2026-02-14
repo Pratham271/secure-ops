@@ -11,12 +11,17 @@
     "type-check": "tsc --noEmit",
     "clean": "rm -rf dist .turbo node_modules"
   },
-  "keywords": ["ai-agent", "langchain", "groq"],
+  "keywords": [
+    "ai-agent",
+    "langchain",
+    "groq"
+  ],
   "dependencies": {
     "@langchain/groq": "^0.0.14",
-    "langchain": "^0.3.0",
+    "@modelcontextprotocol/sdk": "^0.5.0",
+    "dotenv": "^16.6.1",
     "groq-sdk": "^0.8.0",
-    "dotenv": "^16.4.0"
+    "langchain": "^0.3.0"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",
