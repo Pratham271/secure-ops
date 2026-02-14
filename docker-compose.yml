@@ -1,0 +1,74 @@
+services:
+  # Archestra MCP Platform
+  archestra:
+    image: archestra/platform:latest
+    container_name: secureops-archestra
+    ports:
+      - "3000:3000"  # Chat UI
+      - "9000:9000"  # MCP Gateway
+    environment:
+      # Quickstart mode for development
+      - ARCHESTRA_QUICKSTART=true
+
+      # LLM API Keys
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - OPENAI_API_KEY=${GROQ_API_KEY}
+
+      # GitHub for ticketing MCP
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - GITHUB_REPO=${GITHUB_REPO}
+    volumes:
+      # Docker socket for running MCP servers
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Persist Postgres data
+      - archestra-postgres-data:/var/lib/postgresql/data
+      # Persist app data
+      - archestra-app-data:/app/data
+      # Mount MCP servers
+      - ./mcp-servers:/mcp-servers
+    networks:
+      - secureops-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # Grafana for Observability
+  grafana:
+    image: grafana/grafana:latest
+    container_name: secureops-grafana
+    ports:
+      - "3001:3000"  # Grafana UI (mapped to 3001 to avoid conflict)
+    environment:
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_INSTALL_PLUGINS=grafana-clock-panel
+    volumes:
+      # Pre-configured dashboards
+      - ./grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./grafana/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
+      # Persist Grafana data
+      - grafana-data:/var/lib/grafana
+    networks:
+      - secureops-network
+    depends_on:
+      - archestra
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  secureops-network:
+    driver: bridge
+
+volumes:
+  archestra-postgres-data:
+  archestra-app-data:
+  grafana-data:

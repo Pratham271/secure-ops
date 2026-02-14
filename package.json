@@ -1,0 +1,28 @@
+{
+  "name": "secure-ops-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "AI-powered incident response with Archestra security guardrails - Turborepo monorepo",
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "start": "turbo run start",
+    "lint": "turbo run lint",
+    "type-check": "turbo run type-check",
+    "clean": "turbo run clean && rm -rf node_modules .turbo",
+    "dev:web": "turbo run dev --filter=web",
+    "dev:mcp": "turbo run dev --filter='@secureops/mcp-*'",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f"
+  },
+  "devDependencies": {
+    "turbo": "^2.3.3",
+    "typescript": "^5.3.3"
+  },
+  "packageManager": "pnpm@9.15.4",
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  }
+}
