@@ -15,6 +15,13 @@
       "when": 1771044980333,
       "tag": "0001_funny_redwing",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1771054718336,
+      "tag": "0002_breezy_human_fly",
+      "breakpoints": true
     }
   ]
 }

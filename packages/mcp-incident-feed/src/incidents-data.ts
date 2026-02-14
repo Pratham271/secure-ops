@@ -3,10 +3,19 @@
  * Includes realistic incidents and PROMPT INJECTION example for security testing
  */
 
+// Generate timestamps relative to current time (within last 6 hours)
+const now = new Date();
+const getRecentTimestamp = (hoursAgo: number, minutesAgo: number = 0) => {
+  const date = new Date(now);
+  date.setHours(date.getHours() - hoursAgo);
+  date.setMinutes(date.getMinutes() - minutesAgo);
+  return date.toISOString();
+};
+
 export const incidents = [
   {
     id: 'INC-2026-001',
-    timestamp: '2026-02-12T10:23:00Z',
+    timestamp: getRecentTimestamp(5, 37),
     severity: 'critical',
     service: 'api-gateway',
     description:
@@ -22,7 +31,7 @@ export const incidents = [
   },
   {
     id: 'INC-2026-002',
-    timestamp: '2026-02-12T10:45:00Z',
+    timestamp: getRecentTimestamp(5, 15),
     severity: 'high',
     service: 'payment-processor',
     description:
@@ -38,7 +47,7 @@ export const incidents = [
   },
   {
     id: 'INC-2026-003',
-    timestamp: '2026-02-12T11:12:00Z',
+    timestamp: getRecentTimestamp(4, 48),
     severity: 'critical',
     service: 'auth-service',
     description:
@@ -54,7 +63,7 @@ export const incidents = [
   },
   {
     id: 'INC-2026-004',
-    timestamp: '2026-02-12T11:30:00Z',
+    timestamp: getRecentTimestamp(4, 30),
     severity: 'high',
     service: 'notification-service',
     description:
@@ -70,7 +79,7 @@ export const incidents = [
   },
   {
     id: 'INC-2026-005',
-    timestamp: '2026-02-12T12:00:00Z',
+    timestamp: getRecentTimestamp(4, 0),
     severity: 'medium',
     service: 'search-api',
     description:
@@ -86,7 +95,7 @@ export const incidents = [
   },
   {
     id: 'INC-2026-006',
-    timestamp: '2026-02-12T12:15:00Z',
+    timestamp: getRecentTimestamp(3, 45),
     severity: 'medium',
     service: 'media-upload',
     description:
@@ -102,7 +111,7 @@ export const incidents = [
   },
   {
     id: 'INC-2026-007',
-    timestamp: '2026-02-12T12:45:00Z',
+    timestamp: getRecentTimestamp(3, 15),
     severity: 'low',
     service: 'cdn',
     description:
@@ -118,7 +127,7 @@ export const incidents = [
   },
   {
     id: 'INC-2026-008',
-    timestamp: '2026-02-12T13:00:00Z',
+    timestamp: getRecentTimestamp(3, 0),
     severity: 'high',
     service: 'database-primary',
     description:
@@ -134,7 +143,7 @@ export const incidents = [
   },
   {
     id: 'INC-2026-009',
-    timestamp: '2026-02-12T13:20:00Z',
+    timestamp: getRecentTimestamp(2, 40),
     severity: 'medium',
     service: 'websocket-server',
     description:
@@ -150,7 +159,7 @@ export const incidents = [
   },
   {
     id: 'INC-2026-010',
-    timestamp: '2026-02-12T13:45:00Z',
+    timestamp: getRecentTimestamp(2, 15),
     severity: 'low',
     service: 'analytics-pipeline',
     description:
@@ -166,7 +175,7 @@ export const incidents = [
   },
   {
     id: 'INC-2026-011',
-    timestamp: '2026-02-12T14:00:00Z',
+    timestamp: getRecentTimestamp(2, 0),
     severity: 'critical',
     service: 'payment-gateway',
     description:
@@ -182,7 +191,7 @@ export const incidents = [
   },
   {
     id: 'INC-2026-012',
-    timestamp: '2026-02-12T14:30:00Z',
+    timestamp: getRecentTimestamp(1, 30),
     severity: 'high',
     service: 'kubernetes-cluster',
     description:
@@ -198,7 +207,7 @@ export const incidents = [
   },
   {
     id: 'INC-2026-013',
-    timestamp: '2026-02-12T15:00:00Z',
+    timestamp: getRecentTimestamp(1, 0),
     severity: 'medium',
     service: 'cache-service',
     description:
@@ -214,7 +223,7 @@ export const incidents = [
   },
   {
     id: 'INC-2026-014',
-    timestamp: '2026-02-12T15:30:00Z',
+    timestamp: getRecentTimestamp(0, 30),
     severity: 'low',
     service: 'log-aggregation',
     description:
@@ -230,7 +239,7 @@ export const incidents = [
   },
   {
     id: 'INC-2026-015',
-    timestamp: '2026-02-12T16:00:00Z',
+    timestamp: getRecentTimestamp(0, 0),
     severity: 'high',
     service: 'user-service',
     description:

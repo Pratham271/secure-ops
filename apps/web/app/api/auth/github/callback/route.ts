@@ -1,28 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
-import { users, githubConnections } from '@/lib/db/schema';
+import { auth } from '@clerk/nextjs/server';
+import { db, githubConnections } from '@/lib/db';
 import { eq } from 'drizzle-orm';
-import { githubApp, getInstallationOctokit } from '@/lib/github-app';
 
 /**
  * GET /api/auth/github/callback
- * Handle GitHub App installation callback
+ * Handle GitHub App installation callback (Clerk-enabled)
  */
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const code = searchParams.get('code');
   let installationId = searchParams.get('installation_id');
-  const setupAction = searchParams.get('setup_action');
-  const state = searchParams.get('state'); // User ID
+
+  // Get Clerk user
+  const { userId: clerkUserId } = await auth();
+
+  if (!clerkUserId) {
+    return NextResponse.redirect(new URL('/sign-in?error=not_authenticated', request.url));
+  }
 
   if (!code) {
-    return NextResponse.redirect(
-      new URL('/settings-simple?error=no_code', process.env.NEXTAUTH_URL!)
-    );
+    return NextResponse.redirect(new URL('/repos?error=no_code', request.url));
   }
 
   try {
-    // Exchange code for access token using direct fetch (not through App octokit)
+    // Exchange code for access token
     const tokenResponse = await fetch('https://github.com/login/oauth/access_token', {
       method: 'POST',
       headers: {
@@ -42,46 +44,14 @@ export async function GET(request: NextRequest) {
       throw new Error(tokenData.error_description || 'No access token received from GitHub');
     }
 
-    // Create Octokit instance with the access token
+    // Create Octokit instance
     const { Octokit } = await import('@octokit/rest');
     const userOctokit = new Octokit({ auth: tokenData.access_token });
 
     const { data: githubUser } = await userOctokit.rest.users.getAuthenticated();
 
-    // Get user's email (use public email or create synthetic one)
-    let userEmail = githubUser.email;
-
-    if (!userEmail) {
-      // GitHub App doesn't have access to private emails
-      // Use synthetic email based on username (like GitHub does)
-      userEmail = `${githubUser.login}@users.noreply.github.com`;
-    }
-
-    // Get or create user in our database
-    let user = await db
-      .select()
-      .from(users)
-      .where(eq(users.email, userEmail))
-      .limit(1);
-
-    let userId: string;
-    if (user.length === 0) {
-      // Create new user
-      const [newUser] = await db
-        .insert(users)
-        .values({
-          email: userEmail,
-          name: githubUser.name || githubUser.login,
-        })
-        .returning();
-      userId = newUser.id;
-    } else {
-      userId = user[0].id;
-    }
-
-    // Get installation information using the user's access token
+    // Get installation ID if not provided
     if (!installationId) {
-      // If no installation_id in query params, fetch it
       const installationsResponse = await fetch(
         'https://api.github.com/user/installations',
         {
@@ -95,27 +65,30 @@ export async function GET(request: NextRequest) {
       const installationsData = await installationsResponse.json();
 
       if (!installationsData.installations || installationsData.installations.length === 0) {
-        return NextResponse.redirect(
-          new URL('/settings-simple?error=no_installation', process.env.NEXTAUTH_URL!)
-        );
+        return NextResponse.redirect(new URL('/repos?error=no_installation', request.url));
       }
 
-      // Use the most recent installation
       installationId = installationsData.installations[0].id.toString();
     }
 
-    return handleInstallation(userId, parseInt(installationId), tokenData.access_token);
+    return handleInstallation(clerkUserId, parseInt(installationId), tokenData.access_token, githubUser, request);
   } catch (error: any) {
     console.error('GitHub App callback error:', error);
     return NextResponse.redirect(
-      new URL(`/settings-simple?error=${encodeURIComponent(error.message)}`, process.env.NEXTAUTH_URL!)
+      new URL(`/repos?error=${encodeURIComponent(error.message)}`, request.url)
     );
   }
 }
 
-async function handleInstallation(userId: string, installationId: number, userAccessToken: string) {
+async function handleInstallation(
+  clerkUserId: string,
+  installationId: number,
+  userAccessToken: string,
+  githubUser: any,
+  request: NextRequest
+) {
   try {
-    // Get repositories this installation has access to using user token
+    // Get repositories
     const reposResponse = await fetch(
       `https://api.github.com/user/installations/${installationId}/repositories`,
       {
@@ -128,13 +101,10 @@ async function handleInstallation(userId: string, installationId: number, userAc
 
     if (!reposResponse.ok) {
       const errorData = await reposResponse.json();
-      console.error('Repos fetch error:', errorData);
       throw new Error(`Failed to fetch repositories: ${errorData.message || reposResponse.statusText}`);
     }
 
     const reposData = await reposResponse.json();
-
-    console.log('Repos data:', JSON.stringify(reposData, null, 2));
 
     if (!reposData.repositories || reposData.repositories.length === 0) {
       throw new Error('No repositories found for installation');
@@ -144,18 +114,22 @@ async function handleInstallation(userId: string, installationId: number, userAc
     const firstRepo = reposData.repositories[0];
     const accountInfo = firstRepo.owner;
 
-    const selectedRepositories = reposData.repositories.map((repo: any) => ({
+    // Map repositories with enhanced metadata
+    const repositories = reposData.repositories.map((repo: any) => ({
       id: repo.id,
       name: repo.name,
       fullName: repo.full_name,
       private: repo.private,
+      description: repo.description,
+      language: repo.language,
+      updatedAt: repo.updated_at,
     }));
 
-    // Store or update GitHub connection
+    // Check for existing connection
     const existing = await db
       .select()
       .from(githubConnections)
-      .where(eq(githubConnections.userId, userId))
+      .where(eq(githubConnections.clerkUserId, clerkUserId))
       .limit(1);
 
     if (existing.length > 0) {
@@ -168,37 +142,33 @@ async function handleInstallation(userId: string, installationId: number, userAc
           githubUsername: accountInfo.login,
           accountType: accountInfo.type,
           accountAvatarUrl: accountInfo.avatar_url,
-          selectedRepositories,
-          primaryRepo: selectedRepositories[0]?.fullName || null,
-          permissions: null, // Not available from this endpoint
+          repositories,
+          permissions: null,
           isActive: true,
           updatedAt: new Date(),
         })
-        .where(eq(githubConnections.userId, userId));
+        .where(eq(githubConnections.clerkUserId, clerkUserId));
     } else {
       // Create new connection
       await db.insert(githubConnections).values({
-        userId,
+        clerkUserId,
         installationId,
         githubUserId: accountInfo.id.toString(),
         githubUsername: accountInfo.login,
         accountType: accountInfo.type,
         accountAvatarUrl: accountInfo.avatar_url,
-        selectedRepositories,
-        primaryRepo: selectedRepositories[0]?.fullName || null,
-        permissions: null, // Not available from this endpoint
+        repositories,
+        permissions: null,
         isActive: true,
       });
     }
 
-    // Redirect back to settings with success
-    return NextResponse.redirect(
-      new URL('/settings-simple?success=true', process.env.NEXTAUTH_URL!)
-    );
+    // Redirect to repos page
+    return NextResponse.redirect(new URL('/repos?success=true', request.url));
   } catch (error: any) {
     console.error('Handle installation error:', error);
     return NextResponse.redirect(
-      new URL(`/settings-simple?error=${encodeURIComponent(error.message)}`, process.env.NEXTAUTH_URL!)
+      new URL(`/repos?error=${encodeURIComponent(error.message)}`, request.url)
     );
   }
 }

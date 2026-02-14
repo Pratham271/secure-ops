@@ -105,9 +105,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         };
 
         // Filter by severity
-        let filtered = incidents;
+        let filtered: any[] = [...incidents];
         if (severity !== 'all') {
-          filtered = incidents.filter((i) => i.severity === severity);
+          filtered = filtered.filter((i: any) => i.severity === severity);
         }
 
         // Filter by time (simulated - in real system would check timestamps)
@@ -115,7 +115,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         cutoffTime.setHours(cutoffTime.getHours() - since_hours);
 
         filtered = filtered.filter(
-          (i) => new Date(i.timestamp) >= cutoffTime
+          (i: any) => new Date(i.timestamp) >= cutoffTime
         );
 
         // Apply limit
@@ -186,9 +186,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             low: incidents.filter((i) => i.severity === 'low').length,
           },
           avg_affected_users:
-            incidents.reduce((sum, i) => sum + i.affected_users, 0) /
+            incidents.reduce((sum: number, i: any) => sum + i.affected_users, 0) /
             incidents.length,
-          most_affected_service: getMostAffectedService(incidents),
+          most_affected_service: getMostAffectedService([...incidents] as any[]),
           period_hours,
           generated_at: new Date().toISOString(),
         };
@@ -231,10 +231,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 });
 
 // Helper function
-function getMostAffectedService(incidents: typeof incidents) {
+function getMostAffectedService(incidents: any[]) {
   const serviceCounts: Record<string, number> = {};
 
-  incidents.forEach((incident) => {
+  incidents.forEach((incident: any) => {
     serviceCounts[incident.service] =
       (serviceCounts[incident.service] || 0) + 1;
   });

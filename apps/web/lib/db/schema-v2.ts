@@ -2,29 +2,17 @@ import { pgTable, text, timestamp, integer, boolean, json } from 'drizzle-orm/pg
 import { createId } from '@paralleldrive/cuid2';
 
 /**
- * Database Schema for SecureOps v2
- * Using Drizzle ORM with Postgres + Clerk Authentication
- *
- * NOTE: Users are now managed by Clerk, we only store clerkUserId
+ * GitHub Connections - Updated for Clerk
+ * Links Clerk users to their GitHub App installations
  */
-
-// GitHub Connections - stores GitHub App installation data
 export const githubConnections = pgTable('github_connections', {
   id: text('id').$defaultFn(() => createId()).primaryKey(),
-  clerkUserId: text('clerk_user_id').notNull(), // Clerk user ID (replaces internal users table)
-
-  // GitHub App Installation
+  clerkUserId: text('clerk_user_id').notNull(), // Clerk user ID
   installationId: integer('installation_id').notNull().unique(),
-
-  // GitHub user data
   githubUserId: text('github_user_id').notNull(),
   githubUsername: text('github_username').notNull(),
-
-  // Installation metadata
   accountType: text('account_type'), // 'User' or 'Organization'
   accountAvatarUrl: text('account_avatar_url'),
-
-  // All accessible repositories (JSON array of repository objects)
   repositories: json('repositories').$type<Array<{
     id: number;
     name: string;
@@ -34,28 +22,22 @@ export const githubConnections = pgTable('github_connections', {
     language: string | null;
     updatedAt: string;
   }>>(),
-
-  // Installation permissions
   permissions: json('permissions'),
-
-  // Status
   isActive: boolean('is_active').notNull().default(true),
-
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
-// Repository Settings - per-repository configuration
+/**
+ * Repository Settings - New table
+ * Per-repository settings for each user
+ */
 export const repositorySettings = pgTable('repository_settings', {
   id: text('id').$defaultFn(() => createId()).primaryKey(),
   clerkUserId: text('clerk_user_id').notNull(),
   connectionId: text('connection_id').notNull(), // FK to github_connections
-
-  // Repository info
   repoFullName: text('repo_full_name').notNull(), // "owner/repo"
   repoId: integer('repo_id').notNull(), // GitHub repo ID
-
-  // Settings
   isPrimary: boolean('is_primary').notNull().default(false), // User's default repo
   isActive: boolean('is_active').notNull().default(true),
   settings: json('settings').$type<{
@@ -63,75 +45,38 @@ export const repositorySettings = pgTable('repository_settings', {
     autoTriage?: boolean;
     severityThreshold?: 'critical' | 'high' | 'medium' | 'low';
   }>(),
-
   lastViewedAt: timestamp('last_viewed_at'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
-// Incident History - track all incidents processed
+/**
+ * Incident History - New table
+ * Track incidents and tickets created by the AI agent
+ */
 export const incidentHistory = pgTable('incident_history', {
   id: text('id').$defaultFn(() => createId()).primaryKey(),
   clerkUserId: text('clerk_user_id').notNull(),
   repoFullName: text('repo_full_name').notNull(),
-
-  // Incident data
   incidentId: text('incident_id').notNull(),
   incidentSeverity: text('incident_severity').notNull(),
   incidentService: text('incident_service').notNull(),
   incidentDescription: text('incident_description'),
-
-  // Ticket info
   ticketNumber: integer('ticket_number'),
   ticketUrl: text('ticket_url'),
   ticketCreated: boolean('ticket_created').notNull().default(false),
-
-  // Triage result
   triageResult: json('triage_result').$type<{
     shouldCreateTicket: boolean;
     priority: string;
     reasoning: string;
   }>(),
-
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
-// Agent Execution Logs - for observability
-export const agentLogs = pgTable('agent_logs', {
-  id: text('id').$defaultFn(() => createId()).primaryKey(),
-  clerkUserId: text('clerk_user_id'),
-  repoFullName: text('repo_full_name'),
-
-  // Execution details
-  action: text('action').notNull(), // e.g., 'triage', 'create_ticket', 'notify'
-  status: text('status').notNull(), // success, error, pending
-
-  // LLM details
-  model: text('model'), // e.g., llama-3.3-70b-versatile
-  tokensUsed: integer('tokens_used'),
-  costUsd: text('cost_usd'), // Store as string for precision
-
-  // Logs
-  inputData: json('input_data'),
-  outputData: json('output_data'),
-  errorMessage: text('error_message'),
-
-  // Timing
-  durationMs: integer('duration_ms'),
-  startedAt: timestamp('started_at').notNull(),
-  completedAt: timestamp('completed_at'),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-});
-
-// Types
+// Export types
 export type GitHubConnection = typeof githubConnections.$inferSelect;
 export type NewGitHubConnection = typeof githubConnections.$inferInsert;
-
 export type RepositorySetting = typeof repositorySettings.$inferSelect;
 export type NewRepositorySetting = typeof repositorySettings.$inferInsert;
-
 export type IncidentHistory = typeof incidentHistory.$inferSelect;
 export type NewIncidentHistory = typeof incidentHistory.$inferInsert;
-
-export type AgentLog = typeof agentLogs.$inferSelect;
-export type NewAgentLog = typeof agentLogs.$inferInsert;

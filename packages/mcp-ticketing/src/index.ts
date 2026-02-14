@@ -241,7 +241,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         };
 
         // Create GitHub issue
-        const issue = await octokit.rest.issues.create({
+        const issue = await octokit.request('POST /repos/{owner}/{repo}/issues', {
           owner,
           repo,
           title: `[${severity.toUpperCase()}] ${title}`,
@@ -283,7 +283,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           ? `**Status Update: ${status}**\n\n${comment}`
           : `**Status Update: ${status}**`;
 
-        const issueComment = await octokit.rest.issues.createComment({
+        const issueComment = await octokit.request('POST /repos/{owner}/{repo}/issues/{issue_number}/comments', {
           owner,
           repo,
           issue_number: ticket_number,
@@ -291,7 +291,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         });
 
         // Add status label
-        await octokit.rest.issues.addLabels({
+        await octokit.request('POST /repos/{owner}/{repo}/issues/{issue_number}/labels', {
           owner,
           repo,
           issue_number: ticket_number,
@@ -328,7 +328,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const labels =
           severity !== 'all' ? [`severity:${severity}`, 'incident'] : ['incident'];
 
-        const issues = await octokit.rest.issues.listForRepo({
+        const issues = await octokit.request('GET /repos/{owner}/{repo}/issues', {
           owner,
           repo,
           labels: labels.join(','),
