@@ -8,8 +8,8 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import { Octokit } from '@octokit/rest';
 import { App } from '@octokit/app';
-import { db, githubConnections } from './db.js';
-import { desc, eq } from 'drizzle-orm';
+import { db, githubConnections, repositorySettings, incidentHistory } from './db.js';
+import { desc, eq, and } from 'drizzle-orm';
 import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -76,12 +76,35 @@ async function getGitHubClient(): Promise<{
 
     const connection = connections[0];
 
-    if (!connection.primaryRepo) {
-      console.error('⚠️  No primary repository set');
+    // Try to find primary repository from settings
+    let repoFullName: string | null = null;
+
+    const settings = await db
+      .select()
+      .from(repositorySettings)
+      .where(
+        and(
+          eq(repositorySettings.connectionId, connection.id),
+          eq(repositorySettings.isPrimary, true),
+          eq(repositorySettings.isActive, true)
+        )
+      )
+      .limit(1);
+
+    if (settings.length > 0) {
+      repoFullName = settings[0].repoFullName;
+    } else if (connection.repositories && connection.repositories.length > 0) {
+      // Fallback to first repository if no primary is set
+      repoFullName = connection.repositories[0].fullName;
+      console.error(`⚠️  No primary repository set, using first repo: ${repoFullName}`);
+    }
+
+    if (!repoFullName) {
+      console.error('⚠️  No repositories available');
       return null;
     }
 
-    const [owner, repo] = connection.primaryRepo.split('/');
+    const [owner, repo] = repoFullName.split('/');
 
     if (!githubApp) {
       console.error('⚠️  GitHub App not configured');
@@ -240,7 +263,50 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           region?: string;
         };
 
-        // Create GitHub issue
+        const repoFullName = `${owner}/${repo}`;
+
+        // Check if ticket already exists for this incident
+        const existingIncidents = await db
+          .select()
+          .from(incidentHistory)
+          .where(
+            and(
+              eq(incidentHistory.incidentId, incident_id),
+              eq(incidentHistory.repoFullName, repoFullName),
+              eq(incidentHistory.ticketCreated, true)
+            )
+          )
+          .limit(1);
+
+        if (existingIncidents.length > 0) {
+          const existing = existingIncidents[0];
+          console.error(`⚠️  Ticket already exists for ${incident_id}: #${existing.ticketNumber}`);
+
+          return {
+            content: [
+              {
+                type: 'text',
+                text: JSON.stringify(
+                  {
+                    success: true,
+                    duplicate: true,
+                    message: 'Ticket already exists for this incident',
+                    ticket_url: existing.ticketUrl,
+                    ticket_number: existing.ticketNumber,
+                    incident_id,
+                    severity,
+                    repository: repoFullName,
+                    created_at: existing.createdAt,
+                  },
+                  null,
+                  2
+                ),
+              },
+            ],
+          };
+        }
+
+        // Create GitHub issue (only if not duplicate)
         const issue = await octokit.request('POST /repos/{owner}/{repo}/issues', {
           owner,
           repo,
@@ -249,6 +315,21 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           labels: getLabels(severity),
         });
 
+        // Record in incident history
+        await db.insert(incidentHistory).values({
+          clerkUserId: 'system', // TODO: Get actual user ID from connection
+          repoFullName,
+          incidentId: incident_id,
+          incidentSeverity: severity,
+          incidentService: service || 'unknown',
+          incidentDescription: description,
+          ticketNumber: issue.data.number,
+          ticketUrl: issue.data.html_url,
+          ticketCreated: true,
+        });
+
+        console.error(`✅ Created new ticket #${issue.data.number} for ${incident_id}`);
+
         return {
           content: [
             {
@@ -256,11 +337,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
               text: JSON.stringify(
                 {
                   success: true,
+                  duplicate: false,
                   ticket_url: issue.data.html_url,
                   ticket_number: issue.data.number,
                   incident_id,
                   severity,
-                  repository: `${owner}/${repo}`,
+                  repository: repoFullName,
                   created_at: issue.data.created_at,
                 },
                 null,

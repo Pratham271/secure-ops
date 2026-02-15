@@ -5,8 +5,23 @@ datasources:
     type: prometheus
     access: proxy
     url: http://archestra:9090
-    isDefault: true
+    isDefault: false
     editable: true
     jsonData:
       timeInterval: 5s
       queryTimeout: 60s
+
+  - name: SecureOps Database
+    type: postgres
+    access: proxy
+    url: ep-shiny-tooth-ai5pb0t3-pooler.c-4.us-east-1.aws.neon.tech:5432
+    database: neondb
+    user: neondb_owner
+    isDefault: true
+    editable: true
+    secureJsonData:
+      password: npg_T0jnXH2IzdmD
+    jsonData:
+      sslmode: require
+      postgresVersion: 1500
+      timescaledb: false

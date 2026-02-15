@@ -163,8 +163,15 @@ async function handleInstallation(
       });
     }
 
-    // Redirect to repos page
-    return NextResponse.redirect(new URL('/repos?success=true', request.url));
+    // Get first repository full name for processing
+    const firstRepoFullName = repositories[0]?.fullName;
+
+    // Redirect to processing page to trigger agent
+    const redirectUrl = firstRepoFullName
+      ? `/processing?repo=${encodeURIComponent(firstRepoFullName)}`
+      : '/processing';
+
+    return NextResponse.redirect(new URL(redirectUrl, request.url));
   } catch (error: any) {
     console.error('Handle installation error:', error);
     return NextResponse.redirect(

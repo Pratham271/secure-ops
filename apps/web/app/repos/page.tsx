@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { db, githubConnections, repositorySettings } from '@/lib/db';
 import { eq, and } from 'drizzle-orm';
 import { SyncReposButton } from '@/components/sync-repos-button';
+import { ProcessRepoButton } from '@/components/process-repo-button';
 
 export default async function ReposPage() {
   const user = await currentUser();
@@ -201,19 +202,23 @@ export default async function ReposPage() {
                     )}
                   </div>
 
-                  {/* View Dashboard CTA */}
-                  <div className="mt-4 pt-4 border-t border-border flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">
-                      View Dashboard
-                    </span>
-                    <svg
-                      className="w-5 h-5 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                    </svg>
+                  {/* Action Buttons */}
+                  <div className="mt-4 pt-4 border-t border-border space-y-3">
+                    <ProcessRepoButton repoFullName={repo.fullName} />
+
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">
+                        View Dashboard
+                      </span>
+                      <svg
+                        className="w-5 h-5 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                      </svg>
+                    </div>
                   </div>
                 </Link>
               );

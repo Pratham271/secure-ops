@@ -1,0 +1,282 @@
+{
+  "dashboard": {
+    "title": "SecureOps AI - Operations Dashboard",
+    "tags": ["secureops", "ai", "incidents"],
+    "timezone": "browser",
+    "schemaVersion": 38,
+    "version": 1,
+    "refresh": "30s",
+    "time": {
+      "from": "now-24h",
+      "to": "now"
+    },
+    "panels": [
+      {
+        "id": 1,
+        "title": "Incidents Processed (24h)",
+        "type": "stat",
+        "gridPos": {"h": 8, "w": 6, "x": 0, "y": 0},
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": {"type": "postgres", "uid": "SecureOps Database"},
+            "rawSql": "SELECT COUNT(*) as value FROM incident_history WHERE created_at > NOW() - INTERVAL '24 hours'",
+            "format": "table"
+          }
+        ],
+        "options": {
+          "reduceOptions": {"values": false, "calcs": ["lastNotNull"]},
+          "textMode": "value_and_name",
+          "colorMode": "value",
+          "graphMode": "area",
+          "orientation": "auto"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "thresholds"},
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": null, "color": "green"},
+                {"value": 10, "color": "yellow"},
+                {"value": 50, "color": "red"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 2,
+        "title": "Tickets Created (24h)",
+        "type": "stat",
+        "gridPos": {"h": 8, "w": 6, "x": 6, "y": 0},
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": {"type": "postgres", "uid": "SecureOps Database"},
+            "rawSql": "SELECT COUNT(*) as value FROM incident_history WHERE ticket_created = true AND created_at > NOW() - INTERVAL '24 hours'",
+            "format": "table"
+          }
+        ],
+        "options": {
+          "reduceOptions": {"values": false, "calcs": ["lastNotNull"]},
+          "textMode": "value_and_name",
+          "colorMode": "value",
+          "graphMode": "area"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "palette-classic"},
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": null, "color": "blue"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 3,
+        "title": "Critical Incidents (24h)",
+        "type": "stat",
+        "gridPos": {"h": 8, "w": 6, "x": 12, "y": 0},
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": {"type": "postgres", "uid": "SecureOps Database"},
+            "rawSql": "SELECT COUNT(*) as value FROM incident_history WHERE incident_severity = 'critical' AND created_at > NOW() - INTERVAL '24 hours'",
+            "format": "table"
+          }
+        ],
+        "options": {
+          "reduceOptions": {"values": false, "calcs": ["lastNotNull"]},
+          "textMode": "value_and_name",
+          "colorMode": "value",
+          "graphMode": "area"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "thresholds"},
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": null, "color": "green"},
+                {"value": 1, "color": "orange"},
+                {"value": 5, "color": "red"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 4,
+        "title": "Agent Success Rate",
+        "type": "gauge",
+        "gridPos": {"h": 8, "w": 6, "x": 18, "y": 0},
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": {"type": "postgres", "uid": "SecureOps Database"},
+            "rawSql": "SELECT (COUNT(CASE WHEN status = 'success' THEN 1 END)::float / NULLIF(COUNT(*), 0)) * 100 as value FROM agent_logs WHERE started_at > NOW() - INTERVAL '24 hours'",
+            "format": "table"
+          }
+        ],
+        "options": {
+          "reduceOptions": {"values": false, "calcs": ["lastNotNull"]},
+          "showThresholdLabels": true,
+          "showThresholdMarkers": true
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "min": 0,
+            "max": 100,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "red"},
+                {"value": 80, "color": "yellow"},
+                {"value": 95, "color": "green"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 5,
+        "title": "Incidents Over Time",
+        "type": "timeseries",
+        "gridPos": {"h": 9, "w": 12, "x": 0, "y": 8},
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": {"type": "postgres", "uid": "SecureOps Database"},
+            "rawSql": "SELECT DATE_TRUNC('hour', created_at) as time, COUNT(*) as value, incident_severity as metric FROM incident_history WHERE created_at > NOW() - INTERVAL '24 hours' GROUP BY time, incident_severity ORDER BY time",
+            "format": "time_series"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "drawStyle": "line",
+              "lineInterpolation": "smooth",
+              "fillOpacity": 10,
+              "showPoints": "auto"
+            }
+          },
+          "overrides": [
+            {"matcher": {"id": "byName", "options": "critical"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "red"}}]},
+            {"matcher": {"id": "byName", "options": "high"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "orange"}}]},
+            {"matcher": {"id": "byName", "options": "medium"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "yellow"}}]},
+            {"matcher": {"id": "byName", "options": "low"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "green"}}]}
+          ]
+        }
+      },
+      {
+        "id": 6,
+        "title": "LLM Token Usage",
+        "type": "timeseries",
+        "gridPos": {"h": 9, "w": 12, "x": 12, "y": 8},
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": {"type": "postgres", "uid": "SecureOps Database"},
+            "rawSql": "SELECT DATE_TRUNC('hour', started_at) as time, SUM(COALESCE(tokens_used, 0)) as value, model as metric FROM agent_logs WHERE started_at > NOW() - INTERVAL '24 hours' GROUP BY time, model ORDER BY time",
+            "format": "time_series"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "drawStyle": "bars",
+              "fillOpacity": 50
+            },
+            "unit": "short"
+          }
+        }
+      },
+      {
+        "id": 7,
+        "title": "Incidents by Severity",
+        "type": "piechart",
+        "gridPos": {"h": 8, "w": 8, "x": 0, "y": 17},
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": {"type": "postgres", "uid": "SecureOps Database"},
+            "rawSql": "SELECT incident_severity as metric, COUNT(*) as value FROM incident_history WHERE created_at > NOW() - INTERVAL '24 hours' GROUP BY incident_severity",
+            "format": "table"
+          }
+        ],
+        "options": {
+          "legend": {"displayMode": "table", "placement": "right", "values": ["value", "percent"]},
+          "pieType": "donut"
+        }
+      },
+      {
+        "id": 8,
+        "title": "Top Affected Services",
+        "type": "bargauge",
+        "gridPos": {"h": 8, "w": 8, "x": 8, "y": 17},
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": {"type": "postgres", "uid": "SecureOps Database"},
+            "rawSql": "SELECT incident_service as metric, COUNT(*) as value FROM incident_history WHERE created_at > NOW() - INTERVAL '24 hours' GROUP BY incident_service ORDER BY value DESC LIMIT 10",
+            "format": "table"
+          }
+        ],
+        "options": {
+          "orientation": "horizontal",
+          "displayMode": "gradient",
+          "showUnfilled": true
+        },
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": null, "color": "green"},
+                {"value": 3, "color": "yellow"},
+                {"value": 5, "color": "red"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 9,
+        "title": "Recent Incidents",
+        "type": "table",
+        "gridPos": {"h": 8, "w": 8, "x": 16, "y": 17},
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": {"type": "postgres", "uid": "SecureOps Database"},
+            "rawSql": "SELECT incident_id, incident_severity, incident_service, ticket_number, created_at FROM incident_history ORDER BY created_at DESC LIMIT 10",
+            "format": "table"
+          }
+        ],
+        "options": {
+          "showHeader": true,
+          "sortBy": [{"displayName": "created_at", "desc": true}]
+        },
+        "fieldConfig": {
+          "overrides": [
+            {"matcher": {"id": "byName", "options": "incident_severity"}, "properties": [
+              {"id": "custom.cellOptions", "value": {"type": "color-background"}},
+              {"id": "mappings", "value": [
+                {"type": "value", "options": {"critical": {"color": "red", "index": 0}}},
+                {"type": "value", "options": {"high": {"color": "orange", "index": 1}}},
+                {"type": "value", "options": {"medium": {"color": "yellow", "index": 2}}},
+                {"type": "value", "options": {"low": {"color": "green", "index": 3}}}
+              ]}
+            ]}
+          ]
+        }
+      }
+    ]
+  },
+  "overwrite": true
+}
