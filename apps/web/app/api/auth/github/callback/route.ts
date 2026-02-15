@@ -11,15 +11,27 @@ export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const code = searchParams.get('code');
   let installationId = searchParams.get('installation_id');
+  const setup_action = searchParams.get('setup_action');
+
+  console.log('🔵 GitHub Callback received:', {
+    code: code ? 'present' : 'missing',
+    installationId,
+    setup_action,
+    url: request.url,
+  });
 
   // Get Clerk user
   const { userId: clerkUserId } = await auth();
 
   if (!clerkUserId) {
+    console.error('❌ No Clerk user ID');
     return NextResponse.redirect(new URL('/sign-in?error=not_authenticated', request.url));
   }
 
+  console.log('✅ Clerk user authenticated:', clerkUserId);
+
   if (!code) {
+    console.error('❌ No OAuth code in callback');
     return NextResponse.redirect(new URL('/repos?error=no_code', request.url));
   }
 
@@ -134,6 +146,7 @@ async function handleInstallation(
 
     if (existing.length > 0) {
       // Update existing connection
+      console.log('📝 Updating existing GitHub connection for user:', clerkUserId);
       await db
         .update(githubConnections)
         .set({
@@ -148,8 +161,10 @@ async function handleInstallation(
           updatedAt: new Date(),
         })
         .where(eq(githubConnections.clerkUserId, clerkUserId));
+      console.log('✅ Updated GitHub connection');
     } else {
       // Create new connection
+      console.log('📝 Creating new GitHub connection for user:', clerkUserId);
       await db.insert(githubConnections).values({
         clerkUserId,
         installationId,
@@ -161,7 +176,11 @@ async function handleInstallation(
         permissions: null,
         isActive: true,
       });
+      console.log('✅ Created GitHub connection');
     }
+
+    console.log('✅ Database updated successfully');
+    console.log('📊 Saved repositories:', repositories.map((r: any) => r.fullName));
 
     // Get first repository full name for processing
     const firstRepoFullName = repositories[0]?.fullName;
@@ -171,6 +190,7 @@ async function handleInstallation(
       ? `/processing?repo=${encodeURIComponent(firstRepoFullName)}`
       : '/processing';
 
+    console.log('🔀 Redirecting to:', redirectUrl);
     return NextResponse.redirect(new URL(redirectUrl, request.url));
   } catch (error: any) {
     console.error('Handle installation error:', error);
